@@ -1,0 +1,6 @@
+{
+  "name": "LinguaAI",
+  "description": "AI English Teacher to improve spoken English through natural conversations, instant corrections, and personalized feedback.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
