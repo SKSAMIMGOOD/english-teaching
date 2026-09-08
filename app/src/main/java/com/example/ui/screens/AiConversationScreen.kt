@@ -61,7 +61,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.window.DialogProperties
+import com.example.data.model.AvailableRoleplayScenarios
 import com.example.data.model.ChatMessage
+import com.example.data.model.PracticeMode
+import com.example.data.model.RoleplayScenario
 import com.example.data.model.SessionCorrection
 import com.example.ui.components.AiAvatar
 import com.example.ui.components.AudioWaveformView
@@ -80,6 +88,7 @@ import com.example.ui.theme.LinguaPrimary
 import com.example.ui.theme.LinguaSecondary
 import com.example.ui.theme.LinguaSuccess
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiConversationScreen(
   messages: List<ChatMessage>,
@@ -95,12 +104,16 @@ fun AiConversationScreen(
   onEndConversation: () -> Unit,
   onRetryCorrection: (SessionCorrection) -> Unit,
   onDismissCorrection: () -> Unit,
+  practiceMode: PracticeMode = PracticeMode.FREE_CONVERSATION,
+  roleplayScenario: RoleplayScenario? = null,
+  onChangeMode: (PracticeMode, RoleplayScenario?) -> Unit = { _, _ -> },
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
   var textInput by remember { mutableStateOf("") }
   val listState = rememberLazyListState()
   val isDark = isSystemInDarkTheme()
+  var showModeDialog by remember { mutableStateOf(false) }
 
   val permissionLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.RequestPermission()
@@ -123,6 +136,114 @@ fun AiConversationScreen(
   LaunchedEffect(messages.size, isAiThinking, activeCorrection) {
     if (messages.isNotEmpty()) {
       listState.animateScrollToItem(messages.size - 1)
+    }
+  }
+
+  if (showModeDialog) {
+    BasicAlertDialog(
+      onDismissRequest = { showModeDialog = false },
+      properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+      Box(
+        modifier = Modifier
+          .fillMaxWidth(0.92f)
+          .clip(RoundedCornerShape(28.dp))
+          .background(MaterialTheme.colorScheme.surface)
+          .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(28.dp))
+          .padding(20.dp)
+      ) {
+        Column {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Text(
+              text = "Switch Practice Mode",
+              fontSize = 18.sp,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.onSurface
+            )
+            Box(
+              modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable { showModeDialog = false },
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+              )
+            }
+          }
+
+          Spacer(modifier = Modifier.height(14.dp))
+
+          // 4 Modes
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Free conversation
+            ModeSelectRow(
+              emoji = "💬",
+              title = "Free Conversation",
+              subtitle = "Everyday natural chat",
+              isSelected = practiceMode == PracticeMode.FREE_CONVERSATION && roleplayScenario == null,
+              onClick = {
+                showModeDialog = false
+                onChangeMode(PracticeMode.FREE_CONVERSATION, null)
+              }
+            )
+
+            // AI Questions
+            ModeSelectRow(
+              emoji = "🎯",
+              title = "AI Question Practice",
+              subtitle = "Targeted questions & feedback",
+              isSelected = practiceMode == PracticeMode.AI_QUESTIONS,
+              onClick = {
+                showModeDialog = false
+                onChangeMode(PracticeMode.AI_QUESTIONS, null)
+              }
+            )
+
+            // Speak & Correct
+            ModeSelectRow(
+              emoji = "📝",
+              title = "Speak & Correct",
+              subtitle = "In-depth grammar evaluation",
+              isSelected = practiceMode == PracticeMode.SPEAK_AND_CORRECT,
+              onClick = {
+                showModeDialog = false
+                onChangeMode(PracticeMode.SPEAK_AND_CORRECT, null)
+              }
+            )
+
+            Text(
+              text = "Or choose a scenario:",
+              fontSize = 12.sp,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+            )
+
+            AvailableRoleplayScenarios.take(3).forEach { sc ->
+              ModeSelectRow(
+                emoji = sc.iconEmoji,
+                title = sc.title,
+                subtitle = sc.subtitle,
+                isSelected = practiceMode == PracticeMode.REAL_LIFE_SITUATIONS && roleplayScenario?.id == sc.id,
+                onClick = {
+                  showModeDialog = false
+                  onChangeMode(PracticeMode.REAL_LIFE_SITUATIONS, sc)
+                }
+              )
+            }
+          }
+        }
+      }
     }
   }
 
@@ -266,6 +387,64 @@ fun AiConversationScreen(
               )
             }
           }
+        }
+      }
+
+      // Active Mode Strip with Switcher
+      val modeTitle = when (practiceMode) {
+        PracticeMode.FREE_CONVERSATION -> "Free Conversation"
+        PracticeMode.AI_QUESTIONS -> "AI Question Practice"
+        PracticeMode.REAL_LIFE_SITUATIONS -> roleplayScenario?.title ?: "Real-Life Situation"
+        PracticeMode.SPEAK_AND_CORRECT -> "Speak & Correct"
+      }
+      val modeEmoji = when (practiceMode) {
+        PracticeMode.FREE_CONVERSATION -> "💬"
+        PracticeMode.AI_QUESTIONS -> "🎯"
+        PracticeMode.REAL_LIFE_SITUATIONS -> roleplayScenario?.iconEmoji ?: "🎭"
+        PracticeMode.SPEAK_AND_CORRECT -> "📝"
+      }
+
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+          Text(text = modeEmoji, fontSize = 14.sp)
+          Text(
+            text = modeTitle,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+          )
+        }
+
+        Row(
+          modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(LinguaPrimary.copy(alpha = 0.1f))
+            .clickable { showModeDialog = true }
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+          Icon(
+            imageVector = Icons.Default.SwapHoriz,
+            contentDescription = "Switch Mode",
+            tint = LinguaPrimary,
+            modifier = Modifier.size(14.dp)
+          )
+          Text(
+            text = "Switch Mode",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = LinguaPrimary
+          )
         }
       }
 
@@ -523,3 +702,55 @@ fun AiConversationScreen(
     }
   }
 }
+
+@Composable
+private fun ModeSelectRow(
+  emoji: String,
+  title: String,
+  subtitle: String,
+  isSelected: Boolean,
+  onClick: () -> Unit
+) {
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(16.dp))
+      .background(
+        if (isSelected) LinguaPrimary.copy(alpha = 0.12f)
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+      )
+      .border(
+        width = 1.dp,
+        color = if (isSelected) LinguaPrimary else Color.Transparent,
+        shape = RoundedCornerShape(16.dp)
+      )
+      .clickable(onClick = onClick)
+      .padding(horizontal = 12.dp, vertical = 10.dp),
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Text(text = emoji, fontSize = 20.sp)
+    Spacer(modifier = Modifier.width(10.dp))
+    Column(modifier = Modifier.weight(1f)) {
+      Text(
+        text = title,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        color = if (isSelected) LinguaPrimary else MaterialTheme.colorScheme.onSurface
+      )
+      Text(
+        text = subtitle,
+        fontSize = 11.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+      )
+    }
+    if (isSelected) {
+      Box(
+        modifier = Modifier
+          .size(8.dp)
+          .clip(CircleShape)
+          .background(LinguaPrimary)
+      )
+    }
+  }
+}
+

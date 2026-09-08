@@ -41,13 +41,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.FrostedGlassBorderLight
-import com.example.ui.theme.FrostedGlassBorderSubtle
-import com.example.ui.theme.FrostedGlassDark
-import com.example.ui.theme.FrostedGlassDarkBorder
-import com.example.ui.theme.FrostedGlassWhiteSubtle
 import com.example.ui.theme.LinguaPrimary
 import com.example.ui.theme.LinguaSecondary
+import com.example.ui.theme.LinguaTheme
 import com.example.ui.viewmodel.MainTab
 
 @Composable
@@ -56,9 +52,10 @@ fun LinguaBottomNav(
   onTabSelected: (MainTab) -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val isDark = isSystemInDarkTheme()
-  val navBg = if (isDark) FrostedGlassDark else FrostedGlassWhiteSubtle
-  val navBorder = if (isDark) FrostedGlassDarkBorder else FrostedGlassBorderLight
+  val isDark = LinguaTheme.isDark
+  val colors = LinguaTheme.colors
+  val navBg = colors.cardBackground
+  val navBorder = colors.borderSubtle
 
   Box(
     modifier = modifier
@@ -66,8 +63,8 @@ fun LinguaBottomNav(
       .shadow(
         elevation = 16.dp,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        spotColor = Color(0x1F4F46E5),
-        ambientColor = Color(0x140F172A)
+        spotColor = if (isDark) Color(0x33000000) else Color(0x1F4F46E5),
+        ambientColor = if (isDark) Color(0x1F000000) else Color(0x140F172A)
       )
       .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
       .background(navBg)
@@ -75,8 +72,8 @@ fun LinguaBottomNav(
         width = 1.dp,
         brush = Brush.verticalGradient(
           colors = listOf(
-            navBorder,
-            if (isDark) Color.Transparent else FrostedGlassBorderSubtle
+            if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.85f),
+            navBorder
           )
         ),
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
@@ -188,7 +185,7 @@ private fun NavTabItem(
   icon: @Composable () -> Unit,
   testTag: String
 ) {
-  val contentColor = if (isSelected) LinguaPrimary else Color(0xFF94A3B8)
+  val contentColor = if (isSelected) LinguaTheme.colors.primary else LinguaTheme.colors.textMuted
 
   Column(
     modifier = Modifier

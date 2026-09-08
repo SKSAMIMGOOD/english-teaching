@@ -21,13 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.FrostedGlassBorderLight
-import com.example.ui.theme.FrostedGlassBorderSubtle
-import com.example.ui.theme.FrostedGlassDark
-import com.example.ui.theme.FrostedGlassDarkBorder
-import com.example.ui.theme.FrostedGlassWhite
 import com.example.ui.theme.FrostedHeroCyan
 import com.example.ui.theme.LinguaPrimary
+import com.example.ui.theme.LinguaTheme
 
 /**
  * Standard Frosted Glass container card with specular edge reflections and subtle depth.
@@ -41,17 +37,19 @@ fun FrostedGlassCard(
   borderColor: Color? = null,
   content: @Composable BoxScope.() -> Unit
 ) {
-  val isDark = isSystemInDarkTheme()
-  val bg = backgroundColor ?: if (isDark) FrostedGlassDark else FrostedGlassWhite
-  val specularBorder = borderColor ?: if (isDark) {
-    FrostedGlassDarkBorder
-  } else {
-    FrostedGlassBorderSubtle
-  }
+  val isDark = LinguaTheme.isDark
+  val colors = LinguaTheme.colors
+  val bg = backgroundColor ?: colors.cardBackground
+  val specularBorder = borderColor ?: colors.borderSubtle
 
   Box(
     modifier = modifier
-      .shadow(elevation = elevation, shape = shape, spotColor = Color(0x1A4F46E5), ambientColor = Color(0x0D0F172A))
+      .shadow(
+        elevation = elevation,
+        shape = shape,
+        spotColor = if (isDark) Color(0x33000000) else Color(0x1A4F46E5),
+        ambientColor = if (isDark) Color(0x1F000000) else Color(0x0D0F172A)
+      )
       .clip(shape)
       .background(bg)
       .border(
@@ -77,12 +75,13 @@ fun FrostedBackgroundContainer(
   modifier: Modifier = Modifier,
   content: @Composable BoxScope.() -> Unit
 ) {
-  val isDark = isSystemInDarkTheme()
+  val isDark = LinguaTheme.isDark
+  val colors = LinguaTheme.colors
 
   Box(
     modifier = modifier
       .fillMaxSize()
-      .background(MaterialTheme.colorScheme.background)
+      .background(colors.background)
   ) {
     // Top-right soft indigo luminous aura
     Box(
@@ -93,7 +92,7 @@ fun FrostedBackgroundContainer(
         .background(
           brush = Brush.radialGradient(
             colors = listOf(
-              if (isDark) LinguaPrimary.copy(alpha = 0.18f) else LinguaPrimary.copy(alpha = 0.08f),
+              if (isDark) colors.primary.copy(alpha = 0.18f) else colors.primary.copy(alpha = 0.08f),
               Color.Transparent
             )
           )

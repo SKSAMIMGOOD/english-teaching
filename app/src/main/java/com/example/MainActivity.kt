@@ -49,6 +49,10 @@ fun LinguaApp(viewModel: LinguaViewModel = viewModel()) {
   val currentTab by viewModel.currentTab.collectAsState()
   val userProfile by viewModel.userProfile.collectAsState()
   val recentSessions by viewModel.recentSessions.collectAsState()
+  val allSessions by viewModel.allSessions.collectAsState()
+  val recentCorrections by viewModel.recentCorrections.collectAsState()
+  val currentPracticeMode by viewModel.currentPracticeMode.collectAsState()
+  val currentRoleplayScenario by viewModel.currentRoleplayScenario.collectAsState()
   val messages by viewModel.messages.collectAsState()
   val isAiThinking by viewModel.isAiThinking.collectAsState()
   val isAiSpeaking by viewModel.isAiSpeaking.collectAsState()
@@ -134,6 +138,9 @@ fun LinguaApp(viewModel: LinguaViewModel = viewModel()) {
                     },
                     onViewProgress = {
                       viewModel.navigateToTab(MainTab.PROGRESS)
+                    },
+                    onSelectPracticeMode = { mode, scenario ->
+                      viewModel.startPractice(mode, scenario)
                     }
                   )
                 }
@@ -152,12 +159,22 @@ fun LinguaApp(viewModel: LinguaViewModel = viewModel()) {
                     onOpenVoiceMode = { viewModel.startVoiceMode() },
                     onEndConversation = { viewModel.endConversation() },
                     onRetryCorrection = { corr -> viewModel.retryCorrection(corr) },
-                    onDismissCorrection = { viewModel.dismissCorrection() }
+                    onDismissCorrection = { viewModel.dismissCorrection() },
+                    practiceMode = currentPracticeMode,
+                    roleplayScenario = currentRoleplayScenario,
+                    onChangeMode = { mode, scenario ->
+                      viewModel.startPractice(mode, scenario)
+                    }
                   )
                 }
 
                 MainTab.PROGRESS -> {
-                  ProgressScreen(userProfile = userProfile)
+                  ProgressScreen(
+                    userProfile = userProfile,
+                    allSessions = allSessions,
+                    recentCorrections = recentCorrections,
+                    onStartPractice = { viewModel.navigateToTab(MainTab.PRACTICE) }
+                  )
                 }
 
                 MainTab.PROFILE -> {

@@ -42,6 +42,7 @@ import com.example.ui.theme.LinguaCorrectionRed
 import com.example.ui.theme.LinguaPrimary
 import com.example.ui.theme.LinguaSuccess
 import com.example.ui.theme.LinguaSuccessContainer
+import com.example.ui.theme.LinguaTheme
 
 @Composable
 fun CorrectionCard(
@@ -51,6 +52,8 @@ fun CorrectionCard(
   onPlayCorrectedAudio: (() -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
+  val colors = LinguaTheme.colors
+
   FrostedGlassCard(
     modifier = modifier
       .fillMaxWidth()
@@ -67,10 +70,10 @@ fun CorrectionCard(
         Box(
           modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(LinguaPrimary.copy(alpha = 0.12f))
+            .background(colors.primary.copy(alpha = 0.12f))
             .border(
               width = 1.dp,
-              color = LinguaPrimary.copy(alpha = 0.25f),
+              color = colors.primary.copy(alpha = 0.25f),
               shape = RoundedCornerShape(12.dp)
             )
             .padding(horizontal = 10.dp, vertical = 4.dp)
@@ -82,14 +85,14 @@ fun CorrectionCard(
             Icon(
               imageVector = Icons.Default.AutoAwesome,
               contentDescription = null,
-              tint = LinguaPrimary,
+              tint = colors.primary,
               modifier = Modifier.size(14.dp)
             )
             Text(
               text = "Almost! Try saying:",
               fontSize = 12.sp,
               fontWeight = FontWeight.Bold,
-              color = LinguaPrimary
+              color = colors.primary
             )
           }
         }
@@ -102,8 +105,8 @@ fun CorrectionCard(
         modifier = Modifier
           .fillMaxWidth()
           .clip(RoundedCornerShape(16.dp))
-          .background(LinguaSuccessContainer.copy(alpha = 0.45f))
-          .border(1.dp, LinguaSuccess.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+          .background(colors.successContainer.copy(alpha = 0.45f))
+          .border(1.dp, colors.success.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
           .padding(12.dp)
       ) {
         Row(
@@ -114,7 +117,7 @@ fun CorrectionCard(
             modifier = Modifier
               .size(28.dp)
               .clip(CircleShape)
-              .background(LinguaSuccess),
+              .background(colors.success),
             contentAlignment = Alignment.Center
           ) {
             Text(
@@ -131,7 +134,7 @@ fun CorrectionCard(
             text = "\"${correction.correctedSentence}\"",
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = colors.textPrimary,
             modifier = Modifier.weight(1f)
           )
 
@@ -143,7 +146,7 @@ fun CorrectionCard(
               Icon(
                 imageVector = Icons.Default.VolumeUp,
                 contentDescription = "Listen to pronunciation",
-                tint = LinguaPrimary
+                tint = colors.primary
               )
             }
           }
@@ -160,12 +163,12 @@ fun CorrectionCard(
           Text(
             text = "Your sentence: ",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = colors.textMuted
           )
           Text(
             text = "\"${correction.originalSentence}\"",
             fontSize = 12.sp,
-            color = LinguaCorrectionRed,
+            color = colors.error,
             fontWeight = FontWeight.Medium
           )
         }
@@ -178,10 +181,10 @@ fun CorrectionCard(
         modifier = Modifier
           .fillMaxWidth()
           .clip(RoundedCornerShape(14.dp))
-          .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+          .background(colors.surfaceSecondary.copy(alpha = 0.7f))
           .border(
             width = 0.5.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+            color = colors.border.copy(alpha = 0.5f),
             shape = RoundedCornerShape(14.dp)
           )
           .padding(12.dp)
@@ -190,14 +193,14 @@ fun CorrectionCard(
           text = "Why?",
           fontWeight = FontWeight.Bold,
           fontSize = 13.sp,
-          color = MaterialTheme.colorScheme.onSurface
+          color = colors.textPrimary
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
           text = correction.explanation,
           fontSize = 13.sp,
           lineHeight = 18.sp,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
+          color = colors.textSecondary
         )
       }
 
@@ -210,7 +213,7 @@ fun CorrectionCard(
       ) {
         Button(
           onClick = onTryAgain,
-          colors = ButtonDefaults.buttonColors(containerColor = LinguaPrimary),
+          colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
           shape = RoundedCornerShape(16.dp),
           modifier = Modifier
             .weight(1f)
@@ -233,6 +236,8 @@ fun CorrectionCard(
         OutlinedButton(
           onClick = onContinue,
           shape = RoundedCornerShape(16.dp),
+          colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.textPrimary),
+          border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
           modifier = Modifier
             .weight(1f)
             .height(48.dp)

@@ -34,14 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ChatMessage
 import com.example.data.model.SessionCorrection
-import com.example.ui.theme.FrostedGlassBorderLight
-import com.example.ui.theme.FrostedGlassBorderSubtle
-import com.example.ui.theme.FrostedGlassDark
-import com.example.ui.theme.FrostedGlassDarkBorder
-import com.example.ui.theme.FrostedGlassWhite
 import com.example.ui.theme.FrostedHeroIndigoEnd
 import com.example.ui.theme.FrostedHeroIndigoStart
 import com.example.ui.theme.LinguaPrimary
+import com.example.ui.theme.LinguaTheme
 
 @Composable
 fun ChatBubble(
@@ -51,7 +47,8 @@ fun ChatBubble(
   onContinueCorrection: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val isDark = isSystemInDarkTheme()
+  val isDark = LinguaTheme.isDark
+  val colors = LinguaTheme.colors
 
   if (message.isUser) {
     // User message (right aligned) - Frosted Indigo Pill
@@ -72,7 +69,7 @@ fun ChatBubble(
               bottomStart = 20.dp,
               bottomEnd = 6.dp
             ),
-            spotColor = LinguaPrimary.copy(alpha = 0.25f)
+            spotColor = colors.primary.copy(alpha = 0.25f)
           )
           .clip(
             RoundedCornerShape(
@@ -113,8 +110,8 @@ fun ChatBubble(
     }
   } else {
     // AI Teacher message (left aligned) - Frosted Glass Container
-    val cardBg = if (isDark) FrostedGlassDark else FrostedGlassWhite
-    val cardBorder = if (isDark) FrostedGlassDarkBorder else FrostedGlassBorderLight
+    val cardBg = colors.cardBackground
+    val cardBorder = colors.borderSubtle
 
     Column(
       modifier = modifier
@@ -175,7 +172,7 @@ fun ChatBubble(
             Column {
               Text(
                 text = message.text,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = colors.textPrimary,
                 fontSize = 15.sp,
                 lineHeight = 22.sp,
                 fontWeight = FontWeight.Normal

@@ -5,7 +5,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+
+val LocalLinguaColors = staticCompositionLocalOf { LightLinguaTokens }
+
+object LinguaTheme {
+  val colors: LinguaColorTokens
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLinguaColors.current
+
+  val isDark: Boolean
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLinguaColors.current.isDark
+}
 
 private val DarkColorScheme =
   darkColorScheme(
@@ -54,7 +71,10 @@ fun LinguaTheme(
   content: @Composable () -> Unit,
 ) {
   val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-  MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  val tokens = if (darkTheme) DarkLinguaTokens else LightLinguaTokens
+  CompositionLocalProvider(LocalLinguaColors provides tokens) {
+    MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  }
 }
 
 @Composable

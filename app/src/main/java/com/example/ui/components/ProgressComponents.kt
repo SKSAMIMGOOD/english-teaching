@@ -219,14 +219,15 @@ fun SevenDayImprovementChart(
           if (scores.size < 2) return@Canvas
           val width = size.width
           val height = size.height
-          val minScore = 50f
+          val minScore = 0f
           val maxScore = 100f
           val stepX = width / (scores.size - 1)
 
           val points = scores.mapIndexed { index, score ->
             val x = index * stepX
-            val norm = (score - minScore) / (maxScore - minScore)
-            val y = height - (norm * height)
+            val effectiveScore = score.toFloat().coerceIn(minScore, maxScore)
+            val norm = (effectiveScore - minScore) / (maxScore - minScore)
+            val y = (height - (norm * (height - 20f)) - 10f).coerceIn(10f, height)
             Offset(x, y)
           }
 

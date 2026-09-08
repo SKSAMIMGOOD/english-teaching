@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,12 +20,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +39,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.ConversationSession
+import com.example.data.model.SessionCorrection
 import com.example.data.model.UserProfile
 import com.example.ui.components.FrostedBackgroundContainer
 import com.example.ui.components.FrostedGlassCard
@@ -45,14 +52,54 @@ import com.example.ui.theme.LinguaPrimary
 import com.example.ui.theme.LinguaSecondary
 import com.example.ui.theme.LinguaSuccess
 import com.example.ui.theme.LinguaTertiary
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 @Composable
 fun ProgressScreen(
   userProfile: UserProfile?,
+  allSessions: List<ConversationSession> = emptyList(),
+  recentCorrections: List<SessionCorrection> = emptyList(),
+  onStartPractice: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
-  val overallScore = 72
-  val streak = userProfile?.streakDays ?: 3
+  val streak = userProfile?.streakDays ?: 0
+  val hasSessions = allSessions.isNotEmpty()
+
+  val overallScore = if (hasSessions) allSessions.map { it.overallScore }.average().toInt() else 0
+  val speakingScore = if (hasSessions) allSessions.map { it.speakingScore }.average().toInt() else 0
+  val grammarScore = if (hasSessions) allSessions.map { it.grammarScore }.average().toInt() else 0
+  val vocabScore = if (hasSessions) allSessions.map { it.vocabularyScore }.average().toInt() else 0
+  val fluencyScore = if (hasSessions) allSessions.map { it.fluencyScore }.average().toInt() else 0
+
+  val totalMinutes = allSessions.sumOf { it.durationSeconds } / 60
+  val totalSessions = allSessions.size
+  val totalCorrections = allSessions.sumOf { it.correctionsCount }
+
+  // 7-day data from real sessions
+  val (chartScores, chartDays) = remember(allSessions) {
+    val dayFormat = SimpleDateFormat("EEE", Locale.getDefault())
+    val scores = mutableListOf<Int>()
+    val days = mutableListOf<String>()
+
+    for (i in 6 downTo 0) {
+      val dayCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
+      days.add(dayFormat.format(dayCal.time))
+
+      val targetYear = dayCal.get(Calendar.YEAR)
+      val targetDay = dayCal.get(Calendar.DAY_OF_YEAR)
+      val daySessions = allSessions.filter {
+        val sc = Calendar.getInstance().apply { timeInMillis = it.timestamp }
+        sc.get(Calendar.YEAR) == targetYear && sc.get(Calendar.DAY_OF_YEAR) == targetDay
+      }
+      val avgDayScore = if (daySessions.isNotEmpty()) {
+        daySessions.map { it.overallScore }.average().toInt()
+      } else 0
+      scores.add(avgDayScore)
+    }
+    Pair(scores, days)
+  }
 
   FrostedBackgroundContainer(modifier = modifier) {
     Column(
@@ -79,7 +126,7 @@ fun ProgressScreen(
           )
           Spacer(modifier = Modifier.height(2.dp))
           Text(
-            text = "Consistent speaking builds mastery",
+            text = if (hasSessions) "Real-time speaking mastery" else "Start practicing to track progress",
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
@@ -138,17 +185,22 @@ fun ProgressScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-              text = "Conversational",
+              text = when {
+                overallScore >= 82 -> "Advanced Speaker"
+                overallScore >= 70 -> "Conversational"
+                overallScore > 0 -> "Elementary"
+                else -> "Ready to Begin"
+              },
               fontSize = 20.sp,
               fontWeight = FontWeight.Bold,
               color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-              text = "+6% higher than last week",
+              text = if (hasSessions) "$totalSessions practice sessions completed" else "Complete your first conversation",
               fontSize = 12.sp,
-              fontWeight = FontWeight.Bold,
-              color = FrostedFluencyGreen
+              fontWeight = FontWeight.SemiBold,
+              color = if (hasSessions) FrostedFluencyGreen else Color(0xFF94A3B8)
             )
           }
 
@@ -160,9 +212,80 @@ fun ProgressScreen(
         }
       }
 
+      Spacer(modifier = Modifier.height(14.dp))
+
+      // Real Stats Summary Row
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+      ) {
+        // Sessions
+        FrostedGlassCard(
+          modifier = Modifier.weight(1f),
+          shape = RoundedCornerShape(20.dp)
+        ) {
+          Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = LinguaPrimary,
+                modifier = Modifier.size(14.dp)
+              )
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("SESSIONS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF94A3B8))
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text("$totalSessions", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+          }
+        }
+
+        // Practice Time
+        FrostedGlassCard(
+          modifier = Modifier.weight(1f),
+          shape = RoundedCornerShape(20.dp)
+        ) {
+          Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                imageVector = Icons.Default.Schedule,
+                contentDescription = null,
+                tint = LinguaSecondary,
+                modifier = Modifier.size(14.dp)
+              )
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("TIME", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF94A3B8))
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text("${totalMinutes}m", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+          }
+        }
+
+        // Corrections
+        FrostedGlassCard(
+          modifier = Modifier.weight(1f),
+          shape = RoundedCornerShape(20.dp)
+        ) {
+          Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                imageVector = Icons.Default.AutoAwesome,
+                contentDescription = null,
+                tint = FrostedFluencyGreen,
+                modifier = Modifier.size(14.dp)
+              )
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("FIXED", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF94A3B8))
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text("$totalCorrections", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+          }
+        }
+      }
+
       Spacer(modifier = Modifier.height(16.dp))
 
-      // 2. The 4 Key Metrics Card
+      // 2. The 4 Key Metrics Card (Real Room Data)
       FrostedGlassCard(
         modifier = Modifier
           .fillMaxWidth()
@@ -182,7 +305,7 @@ fun ProgressScreen(
 
           MetricProgressBar(
             label = "Speaking",
-            percentage = 72,
+            percentage = speakingScore,
             color = LinguaPrimary
           )
 
@@ -190,7 +313,7 @@ fun ProgressScreen(
 
           MetricProgressBar(
             label = "Grammar",
-            percentage = 68,
+            percentage = grammarScore,
             color = LinguaSecondary
           )
 
@@ -198,7 +321,7 @@ fun ProgressScreen(
 
           MetricProgressBar(
             label = "Vocabulary",
-            percentage = 76,
+            percentage = vocabScore,
             color = LinguaTertiary
           )
 
@@ -206,7 +329,7 @@ fun ProgressScreen(
 
           MetricProgressBar(
             label = "Fluency",
-            percentage = 70,
+            percentage = fluencyScore,
             color = LinguaSuccess
           )
         }
@@ -214,15 +337,15 @@ fun ProgressScreen(
 
       Spacer(modifier = Modifier.height(16.dp))
 
-      // 3. Recent Improvement 7-Day Line Chart
+      // 3. Recent Improvement 7-Day Line Chart (Real Daily Scores)
       SevenDayImprovementChart(
-        scores = listOf(63, 65, 66, 68, 69, 70, 72),
-        days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+        scores = chartScores,
+        days = chartDays
       )
 
       Spacer(modifier = Modifier.height(16.dp))
 
-      // 4. AI Recommendation Card
+      // 4. AI Recommendation Card (Adaptive & Actionable)
       FrostedGlassCard(
         modifier = Modifier
           .fillMaxWidth()
@@ -252,20 +375,55 @@ fun ProgressScreen(
             )
           }
 
-          Column {
+          Column(modifier = Modifier.weight(1f)) {
             Text(
-              text = "AI Recommendation",
+              text = "AI Learning Recommendation",
               fontSize = 14.sp,
               fontWeight = FontWeight.Bold,
               color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
+            val recommendationText = when {
+              !hasSessions -> "Start your first practice session today! Consistent 5-minute conversations build long-term speaking fluency and confidence."
+              recentCorrections.isNotEmpty() -> {
+                val latest = recentCorrections.first()
+                "Recent correction tip: Instead of \"${latest.originalSentence}\", try saying \"${latest.correctedSentence}\". ${latest.explanation}"
+              }
+              grammarScore < speakingScore -> "Your speaking flow is solid! Focus on past-tense verb agreements (e.g. 'I went', 'we decided') to boost your grammar rating."
+              else -> "Great progress on grammar and vocabulary! Challenge yourself next with Real-Life Situations or AI Question Practice."
+            }
             Text(
-              text = "Try speaking for 5 more minutes today. Focus on past-tense sentences (e.g. 'I went', 'I studied').",
+              text = recommendationText,
               fontSize = 13.sp,
               lineHeight = 18.sp,
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            if (!hasSessions) {
+              Spacer(modifier = Modifier.height(10.dp))
+              Row(
+                modifier = Modifier
+                  .clip(RoundedCornerShape(12.dp))
+                  .background(LinguaPrimary.copy(alpha = 0.12f))
+                  .clickable(onClick = onStartPractice)
+                  .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Text(
+                  text = "Start Practice",
+                  fontSize = 12.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = LinguaPrimary
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                  imageVector = Icons.Default.ArrowForward,
+                  contentDescription = null,
+                  tint = LinguaPrimary,
+                  modifier = Modifier.size(14.dp)
+                )
+              }
+            }
           }
         }
       }

@@ -7,6 +7,8 @@ import com.example.ai.AiTeacherService
 import com.example.data.db.LinguaDatabase
 import com.example.data.model.ChatMessage
 import com.example.data.model.ConversationSession
+import com.example.data.model.PracticeMode
+import com.example.data.model.RoleplayScenario
 import com.example.data.model.SessionCorrection
 import com.example.data.model.UserProfile
 import com.example.data.repository.LinguaRepository
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 enum class AppScreen {
   SPLASH,
@@ -57,6 +60,13 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
 
   private val _currentTab = MutableStateFlow(MainTab.HOME)
   val currentTab: StateFlow<MainTab> = _currentTab.asStateFlow()
+
+  // Practice Modes state
+  private val _currentPracticeMode = MutableStateFlow(PracticeMode.FREE_CONVERSATION)
+  val currentPracticeMode: StateFlow<PracticeMode> = _currentPracticeMode.asStateFlow()
+
+  private val _currentRoleplayScenario = MutableStateFlow<RoleplayScenario?>(null)
+  val currentRoleplayScenario: StateFlow<RoleplayScenario?> = _currentRoleplayScenario.asStateFlow()
 
   // Chat & Conversation state
   private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -124,6 +134,19 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
     }
   }
 
+  fun selectPracticeMode(mode: PracticeMode, scenario: RoleplayScenario? = null) {
+    _currentPracticeMode.value = mode
+    _currentRoleplayScenario.value = scenario
+  }
+
+  fun startPractice(mode: PracticeMode = PracticeMode.FREE_CONVERSATION, scenario: RoleplayScenario? = null) {
+    _currentPracticeMode.value = mode
+    _currentRoleplayScenario.value = scenario
+    _currentTab.value = MainTab.PRACTICE
+    _currentScreen.value = AppScreen.MAIN
+    startNewConversation()
+  }
+
   fun startNewConversation() {
     _sessionStartTime.value = System.currentTimeMillis()
     _sessionCorrections.value = emptyList()
@@ -132,16 +155,54 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
 
     val profile = userProfile.value
     val name = profile?.name ?: "there"
+    val level = profile?.englishLevel ?: "Beginner"
+    val mode = _currentPracticeMode.value
+    val scenario = _currentRoleplayScenario.value
+
+    val initialAiMsgText = when (mode) {
+      PracticeMode.REAL_LIFE_SITUATIONS -> {
+        scenario?.initialAiGreeting ?: "Welcome! Let's practice a real-world scenario together. Where would you like to begin?"
+      }
+      PracticeMode.AI_QUESTIONS -> {
+        when (level.lowercase()) {
+          "advanced" -> "Welcome to Question Practice, $name! Let's begin: What do you consider the most significant ethical challenge facing modern technology, and why?"
+          "intermediate" -> "Welcome to Question Practice, $name! Here is your first question: If you could travel anywhere in the world tomorrow, where would you choose and why?"
+          else -> "Hi $name! Welcome to Question Practice. Let's start with a simple question: What is your favorite food, and why do you like it?"
+        }
+      }
+      PracticeMode.SPEAK_AND_CORRECT -> {
+        when (level.lowercase()) {
+          "advanced" -> "Welcome to Speak & Correct, $name. Speak in depth about a professional project or challenge you navigated. I'll provide detailed feedback on nuance, grammar, and word choice."
+          "intermediate" -> "Welcome to Speak & Correct, $name! Describe a memorable trip or an interesting experience you had recently. Take your time, and I'll help refine your grammar!"
+          else -> "Hi $name! Welcome to Speak & Correct. Tell me about your favorite hobby or what you did today. Speak freely, and I will gently help you with corrections!"
+        }
+      }
+      PracticeMode.FREE_CONVERSATION -> {
+        when (level.lowercase()) {
+          "advanced" -> "Hello $name, wonderful to connect today! What interesting ideas, projects, or books have been keeping you engaged lately?"
+          "intermediate" -> "Hi $name! Great to see you. How has your week been going so far? Any highlights?"
+          else -> "Hi $name! How was your day today?"
+        }
+      }
+    }
+
     val initialAiMsg = ChatMessage(
       isUser = false,
-      text = "Hi $name! How was your day today?"
+      text = initialAiMsgText
     )
     _messages.value = listOf(initialAiMsg)
 
-    // Play greeting audio
+    // Play greeting audio with level-adjusted speed
     viewModelScope.launch {
       delay(400)
-      aiTeacherService.speak(initialAiMsg.text, profile?.voiceSpeed ?: 1.0f)
+      val baseSpeed = profile?.voiceSpeed ?: 1.0f
+      val levelFactor = when (level.lowercase()) {
+        "beginner" -> 0.88f
+        "advanced" -> 1.08f
+        else -> 1.0f
+      }
+      val effectiveSpeed = (baseSpeed * levelFactor).coerceIn(0.7f, 1.3f)
+      aiTeacherService.speak(initialAiMsg.text, effectiveSpeed)
     }
   }
 
@@ -186,7 +247,9 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
         userLevel = profile?.englishLevel ?: "Beginner",
         userGoal = profile?.learningGoal ?: "Daily conversation",
         userName = profile?.name ?: "Friend",
-        correctionPreference = profile?.correctionPreference ?: "Gentle"
+        correctionPreference = profile?.correctionPreference ?: "Gentle",
+        practiceMode = _currentPracticeMode.value,
+        roleplayScenario = _currentRoleplayScenario.value
       )
 
       _isAiThinking.value = false
@@ -203,8 +266,15 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
       )
       _messages.value = _messages.value + aiMsg
 
-      // Speak AI reply
-      aiTeacherService.speak(aiMsg.text, profile?.voiceSpeed ?: 1.0f)
+      // Level-adjusted speed for speech response
+      val baseSpeed = profile?.voiceSpeed ?: 1.0f
+      val levelFactor = when (profile?.englishLevel?.lowercase()) {
+        "beginner" -> 0.88f
+        "advanced" -> 1.08f
+        else -> 1.0f
+      }
+      val effectiveSpeed = (baseSpeed * levelFactor).coerceIn(0.7f, 1.3f)
+      aiTeacherService.speak(aiMsg.text, effectiveSpeed)
     }
   }
 
@@ -213,7 +283,6 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
   }
 
   fun retryCorrection(correction: SessionCorrection) {
-    // Fill the corrected sentence into user focus or encourage user to repeat it aloud
     _activeCorrection.value = null
     viewModelScope.launch {
       val prompt = "Great! Say this sentence aloud: \"${correction.correctedSentence}\""
@@ -223,7 +292,13 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
 
   fun replayAiAudio(text: String) {
     aiTeacherService.stopSpeaking()
-    aiTeacherService.speak(text, userProfile.value?.voiceSpeed ?: 1.0f)
+    val baseSpeed = userProfile.value?.voiceSpeed ?: 1.0f
+    val levelFactor = when (userProfile.value?.englishLevel?.lowercase()) {
+      "beginner" -> 0.88f
+      "advanced" -> 1.08f
+      else -> 1.0f
+    }
+    aiTeacherService.speak(text, (baseSpeed * levelFactor).coerceIn(0.7f, 1.3f))
   }
 
   fun endConversation() {
@@ -233,18 +308,43 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
     val startTime = _sessionStartTime.value
     val durationSecs = if (startTime > 0) {
       ((System.currentTimeMillis() - startTime) / 1000).toInt().coerceAtLeast(30)
-    } else 480
+    } else 360
 
     val corrections = _sessionCorrections.value
-    val grammarScore = (85 - (corrections.size * 5)).coerceIn(60, 95)
-    val vocabScore = (78 + (if (_messages.value.size > 6) 5 else 0)).coerceIn(65, 95)
-    val speakingScore = 74
-    val fluencyScore = 72
+    val userMessages = _messages.value.filter { it.isUser }
+    val totalUserWords = userMessages.sumOf { it.text.split("\\s+".toRegex()).size }
+    val mistakes = corrections.size
+
+    // Calculate real scores based on conversation data
+    val grammarScore = (96 - (mistakes * 6)).coerceIn(55, 98)
+    val vocabScore = if (totalUserWords > 35) {
+      (80 + (totalUserWords / 8).coerceAtMost(16)).coerceIn(65, 96)
+    } else {
+      (70 + (totalUserWords / 6).coerceAtMost(18)).coerceIn(58, 90)
+    }
+    val speakingScore = (72 + (userMessages.size * 4).coerceAtMost(24)).coerceIn(60, 98)
+    val cleanTurns = (userMessages.size - mistakes).coerceAtLeast(0)
+    val fluencyScore = (68 + (cleanTurns * 5).coerceAtMost(26)).coerceIn(58, 96)
     val overallScore = ((grammarScore + vocabScore + speakingScore + fluencyScore) / 4)
 
+    val mode = _currentPracticeMode.value
+    val scenario = _currentRoleplayScenario.value
+    val sessionTitle = when (mode) {
+      PracticeMode.FREE_CONVERSATION -> "Free Conversation"
+      PracticeMode.AI_QUESTIONS -> "Question Practice"
+      PracticeMode.REAL_LIFE_SITUATIONS -> scenario?.title ?: "Real-Life Situation"
+      PracticeMode.SPEAK_AND_CORRECT -> "Speak & Correct"
+    }
+    val sessionTopic = scenario?.subtitle ?: when (mode) {
+      PracticeMode.FREE_CONVERSATION -> "Daily Conversation"
+      PracticeMode.AI_QUESTIONS -> "Targeted Q&A"
+      PracticeMode.REAL_LIFE_SITUATIONS -> scenario?.title ?: "Practical English"
+      PracticeMode.SPEAK_AND_CORRECT -> "Grammar & Fluency Focus"
+    }
+
     val session = ConversationSession(
-      title = "Conversation Practice",
-      topic = "Daily Conversation",
+      title = sessionTitle,
+      topic = sessionTopic,
       timestamp = System.currentTimeMillis(),
       durationSeconds = durationSecs,
       overallScore = overallScore,
@@ -261,8 +361,56 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
         repository.insertCorrection(corr.copy(sessionId = sessionId))
       }
       _lastFinishedSession.value = session.copy(id = sessionId)
+
+      // Calculate real streak from updated sessions
+      val allPastSessions = allSessions.value
+      val updatedList = allPastSessions + session
+      val newStreak = calculateRealStreak(updatedList)
+      userProfile.value?.let { currentProfile ->
+        repository.saveUserProfile(currentProfile.copy(streakDays = newStreak))
+      }
+
       _currentScreen.value = AppScreen.CONVERSATION_SUMMARY
     }
+  }
+
+  private fun calculateRealStreak(sessions: List<ConversationSession>): Int {
+    if (sessions.isEmpty()) return 0
+    val sessionDays = sessions.map {
+      val c = Calendar.getInstance().apply { timeInMillis = it.timestamp }
+      c.get(Calendar.YEAR) to c.get(Calendar.DAY_OF_YEAR)
+    }.toSet()
+
+    val cal = Calendar.getInstance()
+    val todayYear = cal.get(Calendar.YEAR)
+    val todayDay = cal.get(Calendar.DAY_OF_YEAR)
+
+    var streak = 0
+    // Check if practiced today
+    if (sessionDays.contains(todayYear to todayDay)) {
+      streak++
+      cal.add(Calendar.DAY_OF_YEAR, -1)
+    } else {
+      // Check if practiced yesterday
+      cal.add(Calendar.DAY_OF_YEAR, -1)
+      val yYear = cal.get(Calendar.YEAR)
+      val yDay = cal.get(Calendar.DAY_OF_YEAR)
+      if (!sessionDays.contains(yYear to yDay)) {
+        return 0
+      }
+    }
+
+    while (true) {
+      val y = cal.get(Calendar.YEAR)
+      val d = cal.get(Calendar.DAY_OF_YEAR)
+      if (sessionDays.contains(y to d)) {
+        streak++
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+      } else {
+        break
+      }
+    }
+    return streak
   }
 
   fun backToHomeFromSummary() {
@@ -311,6 +459,8 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
 
   fun resetUserData() {
     viewModelScope.launch {
+      database.linguaDao().clearAllSessions()
+      database.linguaDao().clearAllCorrections()
       val defaultProfile = UserProfile(
         id = 1,
         name = "Alex",
@@ -321,10 +471,12 @@ class LinguaViewModel(application: Application) : AndroidViewModel(application) 
         voiceSpeed = 1.0f,
         correctionPreference = "Gentle",
         isDarkMode = false,
-        streakDays = 3
+        streakDays = 0
       )
       repository.saveUserProfile(defaultProfile)
       _messages.value = emptyList()
+      _currentPracticeMode.value = PracticeMode.FREE_CONVERSATION
+      _currentRoleplayScenario.value = null
       _currentScreen.value = AppScreen.MAIN
       _currentTab.value = MainTab.HOME
     }

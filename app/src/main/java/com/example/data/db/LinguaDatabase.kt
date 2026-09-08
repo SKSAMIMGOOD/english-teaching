@@ -52,6 +52,15 @@ interface LinguaDao {
 
   @Update
   suspend fun updateCorrection(correction: SessionCorrection)
+
+  @Query("DELETE FROM conversation_sessions")
+  suspend fun clearAllSessions()
+
+  @Query("DELETE FROM session_corrections")
+  suspend fun clearAllCorrections()
+
+  @Query("DELETE FROM user_profile")
+  suspend fun clearUserProfile()
 }
 
 @Database(
@@ -94,7 +103,7 @@ abstract class LinguaDatabase : RoomDatabase() {
       }
 
       suspend fun populateInitialData(dao: LinguaDao) {
-        // Initial default user profile (not yet finished onboarding)
+        // Initial clean user profile with 0 streak and no pre-filled fake sessions
         dao.saveUserProfile(
           UserProfile(
             id = 1,
@@ -106,65 +115,7 @@ abstract class LinguaDatabase : RoomDatabase() {
             voiceSpeed = 1.0f,
             correctionPreference = "Gentle",
             isDarkMode = false,
-            streakDays = 3
-          )
-        )
-
-        // Seed 2 recent practice sessions for a rich first impression
-        val now = System.currentTimeMillis()
-        val s1 = dao.insertSession(
-          ConversationSession(
-            id = 0,
-            title = "Daily Conversation",
-            topic = "Daily routine & Weekend plans",
-            timestamp = now - (8 * 60 * 1000L), // 8 min ago
-            durationSeconds = 480, // 8 min
-            overallScore = 72,
-            speakingScore = 72,
-            grammarScore = 68,
-            vocabularyScore = 76,
-            fluencyScore = 70,
-            correctionsCount = 2
-          )
-        )
-        dao.insertCorrection(
-          SessionCorrection(
-            sessionId = s1,
-            originalSentence = "Yesterday I go to market.",
-            correctedSentence = "Yesterday I went to the market.",
-            explanation = "Because you're talking about the past, use 'went' instead of 'go', and include the article 'the'."
-          )
-        )
-        dao.insertCorrection(
-          SessionCorrection(
-            sessionId = s1,
-            originalSentence = "I very like coffee.",
-            correctedSentence = "I really like coffee.",
-            explanation = "In English, 'really like' or 'like coffee very much' is more natural than 'very like'."
-          )
-        )
-
-        val s2 = dao.insertSession(
-          ConversationSession(
-            id = 0,
-            title = "Introducing Yourself",
-            topic = "Work, studies & hobbies",
-            timestamp = now - (24 * 60 * 60 * 1000L), // Yesterday
-            durationSeconds = 360, // 6 min
-            overallScore = 70,
-            speakingScore = 70,
-            grammarScore = 66,
-            vocabularyScore = 74,
-            fluencyScore = 68,
-            correctionsCount = 1
-          )
-        )
-        dao.insertCorrection(
-          SessionCorrection(
-            sessionId = s2,
-            originalSentence = "I am work in tech company.",
-            correctedSentence = "I work in a tech company.",
-            explanation = "Use simple present 'I work' for your regular occupation, without 'am'."
+            streakDays = 0
           )
         )
       }
